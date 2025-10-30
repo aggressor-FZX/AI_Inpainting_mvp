@@ -43,43 +43,68 @@ This guide explains how to set up and run the AI Inpainting MVP, a real-time vid
 
 ## How to Run
 
-### Option 1: Terminal Script (Recommended for Production)
+### Option 1: Terminal Script (Recommended)
 
-1. In WSL, run the server:
+Before running anything on WSL, prepare FFmpeg on Windows — this is the only Windows-side dependency for the pipeline.
+
+Windows (FFmpeg) — what to download and run
+
+1. Download FFmpeg for Windows (for example from https://www.gyan.dev/ffmpeg/builds/).
+2. Unzip and note the full path to `ffmpeg.exe` (example: `C:\Tools\ffmpeg\...\bin\ffmpeg.exe`).
+3. Find your camera device name and supported formats:
+
+   ```powershell
+   & "C:\path\to\ffmpeg.exe" -list_devices true -f dshow -i dummy
+   & "C:\path\to\ffmpeg.exe" -f dshow -list_options true -i video="Your Camera Name"
+   ```
+
+4. When ready, run FFmpeg to stream raw BGR24 frames to WSL (replace the path and WSL IP):
+
+   ```powershell
+   & "C:\path\to\ffmpeg.exe" -f dshow -rtbufsize 256M -video_size 1280x720 -framerate 30 -i video="Your Camera Name" -pix_fmt bgr24 -fflags nobuffer -flags low_delay -loglevel warning -f rawvideo "tcp://<WSL_IP>:5000"
+   ```
+
+WSL (script) — start the server and processor
+
+1. In WSL, activate your virtualenv and run the script:
+
    ```bash
    source .venv/bin/activate
-   python3 listen_raw_server.py --no-save  # Live-only, no saving
-   # or python3 listen_raw_server.py        # Saves 200 frames
+   python3 listen_raw_server.py --no-save    # live-only (no disk writes)
+   # or
+   python3 listen_raw_server.py              # saves a short recording by default
    ```
 
-2. On Windows, open PowerShell and run FFmpeg (replace paths and IP):
-   ```powershell
-   & "C:\path\to\ffmpeg.exe" -f dshow -video_size 1280x720 -framerate 30 -i video="Your Camera Name" -pix_fmt bgr24 -f rawvideo tcp://172.24.146.232:5000
-   ```
-   - Find camera name with `ffmpeg -list_devices -f dshow -i dummy`.
-   - Start FFmpeg within 30 seconds of the Python script.
+2. The script will:
+   - Listen on port 5000 for an incoming rawvideo TCP connection.
+   - Reconstruct incoming frames (W*H*3 bytes per frame) as BGR images.
+   - Run YOLO person segmentation and LaMa inpainting on each frame.
+   - Display a live side-by-side window and optionally save original/inpainted AVI files.
 
-The script will display a live video window with FPS overlay and process frames in real-time.
+Start the script first, then start FFmpeg on Windows. The server includes a short timeout if no client connects.
 
-### Option 2: Jupyter Notebook (For Development/Testing)
+### Option 2: Jupyter Notebook (Development / Live or Record)
 
-1. In WSL, start Jupyter:
+Use the notebook when you want interactive control, visualization, or to create side-by-side comparison clips.
+
+1. In WSL, start Jupyter and open `MVp_clean.ipynb`:
+
    ```bash
    source .venv/bin/activate
    jupyter notebook
    ```
 
-2. Open `MVp_clean.ipynb`.
+2. Notebook sequence:
+   - Run the server cell first (this starts the TCP listener).
+   - Start FFmpeg on Windows (same FFmpeg command as above) within the server timeout window.
+   - Run the processing cell(s) to receive frames, run YOLO+LaMa, and display the real-time side-by-side feed.
 
-3. **Run Cell 1 (Server Setup)**: This starts the TCP server in WSL to receive raw video from Windows.
+Live vs. Record modes in the notebook:
 
-4. **On Windows, Run FFmpeg**: As above, stream to the WSL IP:5000. Do this within 30 seconds of running the server cell.
+- Live realtime: set the notebook/script option to not save video (save_videos=False or run script with `--no-save`). This minimizes disk I/O and is best for monitoring and tuning.
+- Record to disk: enable saving (save_videos=True or run script without `--no-save`) to capture short AVI files for later side-by-side stitching and analysis. The notebook contains cells to create side-by-side comparison videos from the saved AVI files.
 
-5. **Run Cell 2 (Processing Loop)**: The notebook will receive frames, apply YOLO segmentation to detect people, use LaMa to inpaint (remove) them, and display a side-by-side comparison (original left, inpainted right) with FPS and frame count overlay.
-
-6. **Optional Cells**: Run additional cells to save videos or create comparison clips.
-
-The notebook allows interactive debugging and visualization, while the script is for headless operation.
+The notebook gives you step-by-step control and is useful for debugging and creating recorded comparison clips. The standalone script is easier for repeated runs and headless operation.
 
 ## TCP data format & Windows → WSL flow
 
