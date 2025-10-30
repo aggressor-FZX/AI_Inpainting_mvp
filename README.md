@@ -90,8 +90,8 @@ Hardware specs are provided for comparing model speeds across different GPUs/CPU
 - **Network**: WSL2 Ethernet for low-latency TCP (avoids WSL localhost issues).
 
 **Performance Benchmarks** (at 1280x720):
-- **FPS**: 10-15 on RTX 40-series; 5-10 on RTX 30-series; <5 on CPU-only.
-- **Latency**: 100-200ms end-to-end.
+- **FPS**: ~5 on RTX 40-series (tested); 3-5 on RTX 30-series; <3 on CPU-only.
+- **Latency**: 200-300ms end-to-end.
 - **VRAM Usage**: 2-4GB.
 - **CPU Load**: Minimal (GPU-bound).
 
