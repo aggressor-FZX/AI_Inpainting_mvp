@@ -51,7 +51,7 @@ Windows (FFmpeg) — what to download and run
 
 1. Download FFmpeg for Windows (for example from https://www.gyan.dev/ffmpeg/builds/).
 2. Unzip and note the full path to `ffmpeg.exe` (example: `C:\Tools\ffmpeg\...\bin\ffmpeg.exe`).
-3. Find your camera device name and supported formats:
+3. Find your camera device name and supported formats (below shows powershell commands):
 
    ```powershell
    & "C:\path\to\ffmpeg.exe" -list_devices true -f dshow -i dummy
@@ -200,7 +200,7 @@ Pixel format and color order (BGR vs RGB)
 ## Troubleshooting
 
 - **No Video in WSL**: Ensure FFmpeg is streaming to the correct WSL IP/port. Check firewall.
-- **Low FPS**: Use a better GPU or lower resolution.
+- **Low FPS**: Use a lower resolution.
 - **Connection Refused**: Start Python server before FFmpeg.
 - **Model Errors**: Ensure CUDA is installed and GPU is detected (`nvidia-smi`).
 
