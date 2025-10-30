@@ -1,86 +1,112 @@
-# AI Inpainting MVP
+# AI Inpainting MVP: How to Use
 
-Real-time camera processing with YOLO person detection and LaMa inpainting.
+This guide explains how to set up and run the AI Inpainting MVP, a real-time video processing pipeline that removes people from camera feeds using AI models. It streams video from Windows FFmpeg to a WSL Python server for processing.
 
-## Setup
+## Tech Stack
 
-1. Install Python dependencies:
+- **YOLOv8 (ultralytics)**: For real-time person segmentation and detection.
+- **Simple LaMa Inpainting**: AI-based background restoration to fill in removed people.
+- **OpenCV**: Video capture, processing, display, and saving.
+- **FFmpeg**: Command-line tool for camera streaming on Windows.
+- **NumPy**: Image array manipulations.
+- **Python Socket Library**: TCP streaming between Windows and WSL.
+- **PyTorch/TorchVision**: Backend for AI models (CUDA-enabled for GPU acceleration).
+
+## Prerequisites
+
+- **Windows**: FFmpeg installed (download from ffmpeg.org).
+- **WSL2 (Ubuntu)**: Python 3.8+, virtual environment.
+- **Hardware**: NVIDIA GPU with CUDA support (for optimal performance).
+- **Network**: WSL Ethernet bridge for TCP connectivity.
+
+## Step-by-Step Setup
+
+1. **Clone or Download the Repo**:
    ```bash
+   git clone https://github.com/aggressor-FZX/AI_Inpainting_mvp.git
+   cd AI_Inpainting_mvp
+   ```
+
+2. **Install Dependencies in WSL**:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
    pip install -r requirements.txt
    ```
 
-2. Download YOLO model (included in repo):
-   - `yolov8n-seg.pt` is already included.
+3. **Find Your WSL IP**:
+   In WSL terminal:
+   ```bash
+   ip addr show eth0 | grep inet
+   ```
+   Note the IP (e.g., 172.24.146.232).
 
-## Usage
+## How to Run
 
-### Terminal Script (Recommended)
-Run the standalone server:
-```bash
-python3 listen_raw_server.py --no-save  # Live-only mode
-# or
-python3 listen_raw_server.py            # Save 200 frames
-```
+### Option 1: Terminal Script (Recommended for Production)
 
-### Notebook
-Open `MVp_clean.ipynb` in Jupyter and run the cells.
+1. In WSL, run the server:
+   ```bash
+   source .venv/bin/activate
+   python3 listen_raw_server.py --no-save  # Live-only, no saving
+   # or python3 listen_raw_server.py        # Saves 200 frames
+   ```
 
-## Windows FFmpeg Setup
-Install FFmpeg on Windows and run:
-```powershell
-& "C:\path\to\ffmpeg.exe" -f dshow -video_size 1280x720 -framerate 30 -i video="Your Camera" -pix_fmt bgr24 -f rawvideo tcp://YOUR_WSL_IP:5000
-```
+2. On Windows, open PowerShell and run FFmpeg (replace paths and IP):
+   ```powershell
+   & "C:\path\to\ffmpeg.exe" -f dshow -video_size 1280x720 -framerate 30 -i video="Your Camera Name" -pix_fmt bgr24 -f rawvideo tcp://172.24.146.232:5000
+   ```
+   - Find camera name with `ffmpeg -list_devices -f dshow -i dummy`.
+   - Start FFmpeg within 30 seconds of the Python script.
 
-Replace `YOUR_WSL_IP` with your WSL IP (e.g., 172.24.146.232).
+The script will display a live video window with FPS overlay and process frames in real-time.
 
-## Operation
+### Option 2: Jupyter Notebook (For Development/Testing)
 
-### Notebook Operation
-The notebook (`MVp_clean.ipynb`) contains cells for:
-- Setting up the raw video server in WSL
-- Receiving frames from Windows FFmpeg over TCP
-- Processing each frame with YOLOv8 for person segmentation
-- Applying LaMa inpainting to remove detected people
-- Displaying a real-time side-by-side comparison (original vs. inpainted)
-- Optionally saving videos and creating comparison clips
-- Monitoring FPS and frame count in real-time
+1. In WSL, start Jupyter:
+   ```bash
+   source .venv/bin/activate
+   jupyter notebook
+   ```
 
-Run the server cell first, then start FFmpeg on Windows within 30 seconds.
+2. Open `MVp_clean.ipynb`.
 
-### Script Operation
-The script (`listen_raw_server.py`) is a standalone version of the notebook's server logic.
-- Listens on port 5000 for raw BGR video stream
-- Processes frames continuously or up to 200 frames if saving
-- Outputs FPS and status to terminal
-- Shows live video window with overlay text
-- Saves videos if enabled
+3. **Run Cell 1 (Server Setup)**: This starts the TCP server in WSL to receive raw video from Windows.
 
-Use `--no-save` for continuous live processing without disk I/O.
+4. **On Windows, Run FFmpeg**: As above, stream to the WSL IP:5000. Do this within 30 seconds of running the server cell.
 
-## Hardware Details
-- **NVIDIA GPU**: RTX 40-series with CUDA 13.0 support
-- **CPU**: Intel/AMD with sufficient RAM for processing
-- **Network**: WSL2 with Ethernet bridge for low-latency TCP streaming
+5. **Run Cell 2 (Processing Loop)**: The notebook will receive frames, apply YOLO segmentation to detect people, use LaMa to inpaint (remove) them, and display a side-by-side comparison (original left, inpainted right) with FPS and frame count overlay.
 
-## Performance Results
-- **Resolution**: 1280x720 (720p)
-- **FPS**: 10-15 FPS on NVIDIA RTX 40-series GPU
-- **Latency**: ~100-200ms end-to-end (capture to display)
-- **CPU Usage**: Low (mostly GPU-bound)
-- **Memory**: ~2-4GB GPU VRAM usage
+6. **Optional Cells**: Run additional cells to save videos or create comparison clips.
 
-Performance scales with GPU power; lower-end GPUs may achieve 5-10 FPS.
+The notebook allows interactive debugging and visualization, while the script is for headless operation.
 
-## Features
-- Real-time YOLO person segmentation
-- LaMa AI inpainting to remove people
-- Side-by-side live display
-- Optional video saving
-- FPS monitoring
+## Hardware Details and Performance
 
-## Requirements
-See `requirements.txt` for full list. Key packages:
-- ultralytics
-- simple-lama-inpainting
-- opencv-python
-- numpy
+Hardware specs are provided for comparing model speeds across different GPUs/CPUs. The pipeline is GPU-intensive due to YOLO and LaMa inference.
+
+- **NVIDIA GPU**: RTX 40-series with CUDA 13.0 (e.g., RTX 4070/4080).
+- **CPU**: Intel/AMD with 16GB+ RAM.
+- **Network**: WSL2 Ethernet for low-latency TCP (avoids WSL localhost issues).
+
+**Performance Benchmarks** (at 1280x720):
+- **FPS**: 10-15 on RTX 40-series; 5-10 on RTX 30-series; <5 on CPU-only.
+- **Latency**: 100-200ms end-to-end.
+- **VRAM Usage**: 2-4GB.
+- **CPU Load**: Minimal (GPU-bound).
+
+Use these to estimate performance on your hardware. Lower resolutions (e.g., 640x480) can achieve higher FPS.
+
+## Troubleshooting
+
+- **No Video in WSL**: Ensure FFmpeg is streaming to the correct WSL IP/port. Check firewall.
+- **Low FPS**: Use a better GPU or lower resolution.
+- **Connection Refused**: Start Python server before FFmpeg.
+- **Model Errors**: Ensure CUDA is installed and GPU is detected (`nvidia-smi`).
+
+## Files Overview
+
+- `listen_raw_server.py`: Standalone script.
+- `MVp_clean.ipynb`: Notebook with interactive cells.
+- `yolov8n-seg.pt`: YOLO model file.
+- `requirements.txt`: Dependencies.
